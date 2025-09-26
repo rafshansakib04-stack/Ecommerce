@@ -19,258 +19,365 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    if (!$input) {
-        $input = $_POST;
-    }
-    
-    $message = $input['message'] ?? '';
-    $context = $input['context'] ?? 'general';
+    $message = $_POST['message'] ?? '';
+    $context = $_POST['context'] ?? '';
+    $userRole = $_SESSION['user_role'];
     
     if (empty($message)) {
         echo json_encode(['success' => false, 'message' => 'Message is required']);
         exit();
     }
     
-    // Process AI request based on context and message
-    $response = processAIRequest($message, $context, $_SESSION['user_role']);
+    $db = Database::getInstance();
     
-    // Log AI interaction
-    logActivity($_SESSION['user_id'], 'ai_chat', "AI Query: " . $message);
+    // Process the AI chat request
+    $response = processAIChat($db, $message, $context, $userRole);
+    
+    // Log the conversation
+    $db->insert('ai_conversations', [
+        'user_id' => $_SESSION['user_id'],
+        'user_message' => $message,
+        'ai_response' => $response['message'],
+        'context' => $context,
+        'user_role' => $userRole,
+        'response_type' => $response['type']
+    ]);
     
     echo json_encode([
         'success' => true,
-        'message' => $response
+        'data' => $response
     ]);
     
 } catch (Exception $e) {
-    error_log('AI chat error: ' . $e->getMessage());
+    error_log('AI Chat error: ' . $e->getMessage());
     echo json_encode(['success' => false, 'message' => 'An error occurred. Please try again.']);
 }
 
-function processAIRequest($message, $context, $userRole) {
-    $db = Database::getInstance();
+function processAIChat($db, $message, $context, $userRole) {
+    $message = strtolower(trim($message));
     
-    // Convert message to lowercase for easier processing
-    $lowerMessage = strtolower($message);
-    
-    // Handle different types of queries
-    if (strpos($lowerMessage, 'dashboard') !== false || strpos($lowerMessage, 'stats') !== false) {
-        return getDashboardInsights($db, $userRole);
+    // Greeting responses
+    if (preg_match('/^(hi|hello|hey|good morning|good afternoon|good evening)/', $message)) {
+        return [
+            'message' => getGreetingResponse($userRole),
+            'type' => 'greeting',
+            'suggestions' => getContextualSuggestions($userRole)
+        ];
     }
     
-    if (strpos($lowerMessage, 'customer') !== false) {
-        return getCustomerInsights($db, $userRole);
+    // Help requests
+    if (preg_match('/help|assist|support/', $message)) {
+        return [
+            'message' => getHelpResponse($userRole),
+            'type' => 'help',
+            'suggestions' => getHelpSuggestions($userRole)
+        ];
     }
     
-    if (strpos($lowerMessage, 'service') !== false || strpos($lowerMessage, 'task') !== false) {
-        return getServiceInsights($db, $userRole);
+    // Dashboard queries
+    if (preg_match('/dashboard|overview|summary/', $message)) {
+        return getDashboardInfo($db, $userRole);
     }
     
-    if (strpos($lowerMessage, 'revenue') !== false || strpos($lowerMessage, 'sales') !== false) {
-        return getRevenueInsights($db, $userRole);
+    // Sales queries
+    if (preg_match('/sales|revenue|income|profit/', $message)) {
+        return getSalesInfo($db, $userRole);
     }
     
-    if (strpos($lowerMessage, 'help') !== false) {
-        return getHelpMessage($userRole);
+    // Service queries
+    if (preg_match('/service|request|technician|customer/', $message)) {
+        return getServiceInfo($db, $userRole);
     }
     
-    if (strpos($lowerMessage, 'weather') !== false) {
-        return getWeatherInfo();
+    // Inventory queries
+    if (preg_match('/inventory|stock|product/', $message)) {
+        return getInventoryInfo($db, $userRole);
     }
     
-    if (strpos($lowerMessage, 'time') !== false || strpos($lowerMessage, 'date') !== false) {
-        return getTimeInfo();
+    // Financial queries
+    if (preg_match('/financial|expense|cost|budget/', $message)) {
+        return getFinancialInfo($db, $userRole);
     }
     
-    // Default response with suggestions
-    return getDefaultResponse($userRole);
+    // Report queries
+    if (preg_match('/report|analytics|chart/', $message)) {
+        return getReportInfo($db, $userRole);
+    }
+    
+    // Default response
+    return [
+        'message' => "I understand you're asking about: '$message'. Could you please be more specific? I can help you with dashboard information, sales data, service requests, inventory management, and financial reports.",
+        'type' => 'general',
+        'suggestions' => getContextualSuggestions($userRole)
+    ];
 }
 
-function getDashboardInsights($db, $userRole) {
-    $insights = [];
+function getGreetingResponse($userRole) {
+    $greetings = [
+        'admin' => "Hello! I'm your AI assistant for the Water Purifier ERP system. I can help you with dashboard analytics, sales reports, customer management, and system administration. What would you like to know?",
+        'customer' => "Hi there! I'm here to help you with your water purifier services. I can assist you with service requests, tracking your technician, billing information, and account management. How can I help you today?",
+        'technician' => "Hello! I'm your AI assistant for field operations. I can help you with task management, route optimization, billing, expense tracking, and performance analytics. What do you need assistance with?"
+    ];
     
-    if ($userRole === 'admin') {
-        // Admin dashboard insights
-        $totalCustomers = $db->fetchOne("SELECT COUNT(*) as count FROM customers")['count'];
-        $pendingServices = $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE status = 'pending'")['count'];
-        $monthlyRevenue = $db->fetchOne("SELECT COALESCE(SUM(total_amount), 0) as revenue FROM invoices WHERE status = 'paid' AND MONTH(created_at) = MONTH(CURDATE())")['revenue'];
-        
-        $insights[] = "You have {$totalCustomers} total customers in your system.";
-        $insights[] = "There are {$pendingServices} pending service requests that need attention.";
-        $insights[] = "Monthly revenue so far: ₹" . number_format($monthlyRevenue);
-        
-        if ($pendingServices > 5) {
-            $insights[] = "⚠️ High number of pending services. Consider assigning more technicians.";
-        }
-        
-        if ($monthlyRevenue > 100000) {
-            $insights[] = "🎉 Great revenue this month! Keep up the excellent work.";
-        }
-        
-    } elseif ($userRole === 'customer') {
-        // Customer dashboard insights
-        $customerId = $_SESSION['customer_id'] ?? null;
-        if ($customerId) {
-            $totalServices = $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE customer_id = ?", [$customerId])['count'];
-            $pendingServices = $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE customer_id = ? AND status IN ('pending', 'assigned', 'in_progress')", [$customerId])['count'];
-            
-            $insights[] = "You have {$totalServices} total service requests.";
-            $insights[] = "You have {$pendingServices} active service requests.";
-            
-            if ($pendingServices === 0) {
-                $insights[] = "✅ All your services are completed! Request a new service if needed.";
-            }
-        }
-        
-    } elseif ($userRole === 'technician') {
-        // Technician dashboard insights
-        $technicianId = $_SESSION['technician_id'] ?? null;
-        if ($technicianId) {
-            $todayTasks = $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE assigned_technician_id = ? AND DATE(created_at) = CURDATE()", [$technicianId])['count'];
-            $pendingTasks = $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE assigned_technician_id = ? AND status IN ('assigned', 'in_progress')", [$technicianId])['count'];
-            $avgRating = $db->fetchOne("SELECT AVG(customer_rating) as rating FROM service_requests WHERE assigned_technician_id = ? AND customer_rating IS NOT NULL", [$technicianId])['rating'] ?? 0;
-            
-            $insights[] = "You have {$todayTasks} tasks assigned today.";
-            $insights[] = "You have {$pendingTasks} pending tasks to complete.";
-            $insights[] = "Your average rating: " . number_format($avgRating, 1) . "/5";
-            
-            if ($avgRating >= 4.5) {
-                $insights[] = "🌟 Excellent rating! Keep up the great work.";
-            }
-        }
-    }
-    
-    return implode("\n\n", $insights);
+    return $greetings[$userRole] ?? "Hello! I'm your AI assistant. How can I help you today?";
 }
 
-function getCustomerInsights($db, $userRole) {
-    if ($userRole !== 'admin') {
-        return "Customer insights are only available to administrators.";
-    }
+function getContextualSuggestions($userRole) {
+    $suggestions = [
+        'admin' => [
+            'Show me today\'s sales summary',
+            'How many service requests are pending?',
+            'What\'s the inventory status?',
+            'Generate a financial report',
+            'Show customer analytics'
+        ],
+        'customer' => [
+            'Check my service status',
+            'Request a new service',
+            'View my service history',
+            'Track my technician',
+            'Update my profile'
+        ],
+        'technician' => [
+            'Show my assigned tasks',
+            'Update task status',
+            'Create a new bill',
+            'Add expense to cashbook',
+            'View my performance'
+        ]
+    ];
     
-    $insights = [];
-    
-    // Top customers by revenue
-    $topCustomers = $db->fetchAll("
-        SELECT c.company_name, c.contact_person, COALESCE(SUM(i.total_amount), 0) as total_revenue
-        FROM customers c 
-        LEFT JOIN invoices i ON c.id = i.customer_id AND i.status = 'paid'
-        GROUP BY c.id 
-        ORDER BY total_revenue DESC 
-        LIMIT 3
-    ");
-    
-    $insights[] = "Top customers by revenue:";
-    foreach ($topCustomers as $customer) {
-        $insights[] = "• " . ($customer['company_name'] ?: $customer['contact_person']) . " - ₹" . number_format($customer['total_revenue']);
-    }
-    
-    // Customer satisfaction
-    $avgRating = $db->fetchOne("SELECT AVG(customer_rating) as rating FROM service_requests WHERE customer_rating IS NOT NULL")['rating'] ?? 0;
-    $insights[] = "\nAverage customer satisfaction: " . number_format($avgRating, 1) . "/5";
-    
-    return implode("\n", $insights);
+    return $suggestions[$userRole] ?? ['How can I help you?'];
 }
 
-function getServiceInsights($db, $userRole) {
-    $insights = [];
-    
-    if ($userRole === 'admin') {
-        $totalServices = $db->fetchOne("SELECT COUNT(*) as count FROM service_requests")['count'];
-        $completedServices = $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE status = 'completed'")['count'];
-        $completionRate = $totalServices > 0 ? round(($completedServices / $totalServices) * 100, 1) : 0;
-        
-        $insights[] = "Total services: {$totalServices}";
-        $insights[] = "Completed services: {$completedServices}";
-        $insights[] = "Completion rate: {$completionRate}%";
-        
-        if ($completionRate < 80) {
-            $insights[] = "⚠️ Service completion rate is below 80%. Consider reviewing processes.";
-        }
-        
-    } elseif ($userRole === 'technician') {
-        $technicianId = $_SESSION['technician_id'] ?? null;
-        if ($technicianId) {
-            $monthlyCompleted = $db->fetchOne("
-                SELECT COUNT(*) as count 
-                FROM service_requests 
-                WHERE assigned_technician_id = ? 
-                AND status = 'completed' 
-                AND MONTH(created_at) = MONTH(CURDATE())
-            ", [$technicianId])['count'];
-            
-            $insights[] = "Services completed this month: {$monthlyCompleted}";
-            
-            if ($monthlyCompleted >= 20) {
-                $insights[] = "🎉 Great performance this month!";
-            }
-        }
-    }
-    
-    return implode("\n", $insights);
-}
-
-function getRevenueInsights($db, $userRole) {
-    if ($userRole !== 'admin') {
-        return "Revenue insights are only available to administrators.";
-    }
-    
-    $insights = [];
-    
-    $monthlyRevenue = $db->fetchOne("
-        SELECT COALESCE(SUM(total_amount), 0) as revenue 
-        FROM invoices 
-        WHERE status = 'paid' AND MONTH(created_at) = MONTH(CURDATE())
-    ")['revenue'];
-    
-    $lastMonthRevenue = $db->fetchOne("
-        SELECT COALESCE(SUM(total_amount), 0) as revenue 
-        FROM invoices 
-        WHERE status = 'paid' AND MONTH(created_at) = MONTH(CURDATE()) - 1
-    ")['revenue'];
-    
-    $insights[] = "Current month revenue: ₹" . number_format($monthlyRevenue);
-    $insights[] = "Last month revenue: ₹" . number_format($lastMonthRevenue);
-    
-    if ($lastMonthRevenue > 0) {
-        $growth = (($monthlyRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100;
-        $insights[] = "Growth: " . ($growth >= 0 ? "+" : "") . number_format($growth, 1) . "%";
-    }
-    
-    return implode("\n", $insights);
-}
-
-function getHelpMessage($userRole) {
+function getHelpResponse($userRole) {
     $helpMessages = [
-        'admin' => "I can help you with:\n• Dashboard insights and statistics\n• Customer information and analytics\n• Service request management\n• Revenue and sales data\n• System performance metrics\n\nJust ask me about any of these topics!",
-        'customer' => "I can help you with:\n• Your service request status\n• Account information\n• Service history\n• Payment details\n• General inquiries\n\nWhat would you like to know?",
-        'technician' => "I can help you with:\n• Your task assignments\n• Performance metrics\n• Customer information\n• Service guidelines\n• Technical support\n\nHow can I assist you today?"
+        'admin' => "As an admin, I can help you with:\n• Dashboard analytics and KPIs\n• Sales and revenue reports\n• Customer and technician management\n• Inventory and stock management\n• Financial reports and analytics\n• System configuration and settings\n\nWhat specific area would you like help with?",
+        'customer' => "As a customer, I can help you with:\n• Service request management\n• Real-time service tracking\n• Billing and payment information\n• Service history and ratings\n• Profile and account management\n• Contact and support\n\nWhat do you need assistance with?",
+        'technician' => "As a technician, I can help you with:\n• Task and service management\n• Route optimization and navigation\n• Billing and invoice creation\n• Expense tracking and cashbook\n• Performance analytics\n• Customer communication\n\nHow can I assist you today?"
     ];
     
-    return $helpMessages[$userRole] ?? "I'm here to help! Ask me about your dashboard, services, or any other questions.";
+    return $helpMessages[$userRole] ?? "I can help you with various aspects of the system. What would you like to know?";
 }
 
-function getWeatherInfo() {
-    // Simple weather response (in production, integrate with weather API)
-    return "I don't have access to real-time weather data, but I recommend checking your local weather app for current conditions. Weather can affect service delivery, so plan accordingly!";
+function getHelpSuggestions($userRole) {
+    return [
+        'Show me the main dashboard',
+        'How do I create a new service request?',
+        'Where can I find my reports?',
+        'How do I update my profile?'
+    ];
 }
 
-function getTimeInfo() {
-    $currentTime = date('d M Y, H:i:s');
-    $timezone = date_default_timezone_get();
+function getDashboardInfo($db, $userRole) {
+    $today = date('Y-m-d');
     
-    return "Current time: {$currentTime} ({$timezone})";
+    if ($userRole === 'admin') {
+        $stats = [
+            'total_customers' => $db->fetchOne("SELECT COUNT(*) as count FROM customers")['count'],
+            'total_technicians' => $db->fetchOne("SELECT COUNT(*) as count FROM technicians")['count'],
+            'pending_services' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE status IN ('pending', 'assigned')")['count'],
+            'today_revenue' => $db->fetchOne("SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE DATE(created_at) = ?", [$today])['total']
+        ];
+        
+        return [
+            'message' => "Here's your dashboard summary:\n• Total Customers: {$stats['total_customers']}\n• Total Technicians: {$stats['total_technicians']}\n• Pending Services: {$stats['pending_services']}\n• Today's Revenue: ₹" . number_format($stats['today_revenue']),
+            'type' => 'dashboard',
+            'data' => $stats
+        ];
+    } elseif ($userRole === 'customer') {
+        $customer = $db->fetchOne("SELECT id FROM customers WHERE user_id = ?", [$_SESSION['user_id']]);
+        if ($customer) {
+            $stats = [
+                'total_services' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE customer_id = ?", [$customer['id']])['count'],
+                'pending_services' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE customer_id = ? AND status IN ('pending', 'assigned', 'in_progress')", [$customer['id']])['count'],
+                'completed_services' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE customer_id = ? AND status = 'completed'", [$customer['id']])['count']
+            ];
+            
+            return [
+                'message' => "Here's your service summary:\n• Total Services: {$stats['total_services']}\n• Pending Services: {$stats['pending_services']}\n• Completed Services: {$stats['completed_services']}",
+                'type' => 'dashboard',
+                'data' => $stats
+            ];
+        }
+    } elseif ($userRole === 'technician') {
+        $technician = $db->fetchOne("SELECT id FROM technicians WHERE user_id = ?", [$_SESSION['user_id']]);
+        if ($technician) {
+            $stats = [
+                'assigned_tasks' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE assigned_technician_id = ? AND status IN ('assigned', 'in_progress')", [$technician['id']])['count'],
+                'completed_tasks' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE assigned_technician_id = ? AND status = 'completed'", [$technician['id']])['count'],
+                'today_income' => $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM daily_cashbook WHERE user_id = ? AND transaction_type = 'income' AND DATE(transaction_date) = ?", [$_SESSION['user_id'], $today])['total']
+            ];
+            
+            return [
+                'message' => "Here's your task summary:\n• Assigned Tasks: {$stats['assigned_tasks']}\n• Completed Tasks: {$stats['completed_tasks']}\n• Today's Income: ₹" . number_format($stats['today_income']),
+                'type' => 'dashboard',
+                'data' => $stats
+            ];
+        }
+    }
+    
+    return [
+        'message' => "I couldn't retrieve your dashboard information at the moment. Please try again later.",
+        'type' => 'error'
+    ];
 }
 
-function getDefaultResponse($userRole) {
-    $responses = [
-        'admin' => "I'm your AI assistant for the Water Purifier ERP system. I can help you with dashboard insights, customer analytics, service management, and revenue reports. What would you like to know?",
-        'customer' => "I'm here to help you with your water purifier services. I can provide information about your service requests, account details, and answer general questions. How can I assist you?",
-        'technician' => "I'm your AI assistant for service management. I can help you with task information, customer details, performance metrics, and service guidelines. What do you need help with?"
+function getSalesInfo($db, $userRole) {
+    if ($userRole !== 'admin') {
+        return [
+            'message' => "Sales information is only available to administrators.",
+            'type' => 'restricted'
+        ];
+    }
+    
+    $today = date('Y-m-d');
+    $thisMonth = date('Y-m');
+    
+    $sales = [
+        'today_sales' => $db->fetchOne("SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE DATE(created_at) = ?", [$today])['total'],
+        'monthly_sales' => $db->fetchOne("SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE DATE_FORMAT(created_at, '%Y-%m') = ?", [$thisMonth])['total'],
+        'total_invoices' => $db->fetchOne("SELECT COUNT(*) as count FROM invoices WHERE DATE_FORMAT(created_at, '%Y-%m') = ?", [$thisMonth])['count']
     ];
     
-    return $responses[$userRole] ?? "I'm here to help! Ask me anything about the system or your work.";
+    return [
+        'message' => "Sales Summary:\n• Today's Sales: ₹" . number_format($sales['today_sales']) . "\n• Monthly Sales: ₹" . number_format($sales['monthly_sales']) . "\n• Total Invoices: {$sales['total_invoices']}",
+        'type' => 'sales',
+        'data' => $sales
+    ];
+}
+
+function getServiceInfo($db, $userRole) {
+    $today = date('Y-m-d');
+    
+    if ($userRole === 'admin') {
+        $services = [
+            'pending' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE status = 'pending'")['count'],
+            'assigned' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE status = 'assigned'")['count'],
+            'in_progress' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE status = 'in_progress'")['count'],
+            'completed_today' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE status = 'completed' AND DATE(completed_at) = ?", [$today])['count']
+        ];
+        
+        return [
+            'message' => "Service Status:\n• Pending: {$services['pending']}\n• Assigned: {$services['assigned']}\n• In Progress: {$services['in_progress']}\n• Completed Today: {$services['completed_today']}",
+            'type' => 'services',
+            'data' => $services
+        ];
+    } elseif ($userRole === 'customer') {
+        $customer = $db->fetchOne("SELECT id FROM customers WHERE user_id = ?", [$_SESSION['user_id']]);
+        if ($customer) {
+            $services = [
+                'pending' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE customer_id = ? AND status = 'pending'", [$customer['id']])['count'],
+                'in_progress' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE customer_id = ? AND status IN ('assigned', 'in_progress')", [$customer['id']])['count'],
+                'completed' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE customer_id = ? AND status = 'completed'", [$customer['id']])['count']
+            ];
+            
+            return [
+                'message' => "Your Service Status:\n• Pending: {$services['pending']}\n• In Progress: {$services['in_progress']}\n• Completed: {$services['completed']}",
+                'type' => 'services',
+                'data' => $services
+            ];
+        }
+    } elseif ($userRole === 'technician') {
+        $technician = $db->fetchOne("SELECT id FROM technicians WHERE user_id = ?", [$_SESSION['user_id']]);
+        if ($technician) {
+            $services = [
+                'assigned' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE assigned_technician_id = ? AND status = 'assigned'", [$technician['id']])['count'],
+                'in_progress' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE assigned_technician_id = ? AND status = 'in_progress'", [$technician['id']])['count'],
+                'completed_today' => $db->fetchOne("SELECT COUNT(*) as count FROM service_requests WHERE assigned_technician_id = ? AND status = 'completed' AND DATE(completed_at) = ?", [$technician['id'], $today])['count']
+            ];
+            
+            return [
+                'message' => "Your Task Status:\n• Assigned: {$services['assigned']}\n• In Progress: {$services['in_progress']}\n• Completed Today: {$services['completed_today']}",
+                'type' => 'services',
+                'data' => $services
+            ];
+        }
+    }
+    
+    return [
+        'message' => "I couldn't retrieve service information at the moment. Please try again later.",
+        'type' => 'error'
+    ];
+}
+
+function getInventoryInfo($db, $userRole) {
+    if ($userRole !== 'admin') {
+        return [
+            'message' => "Inventory information is only available to administrators.",
+            'type' => 'restricted'
+        ];
+    }
+    
+    $inventory = [
+        'total_products' => $db->fetchOne("SELECT COUNT(*) as count FROM products")['count'],
+        'low_stock' => $db->fetchOne("SELECT COUNT(*) as count FROM products WHERE stock_quantity <= min_stock_level")['count'],
+        'out_of_stock' => $db->fetchOne("SELECT COUNT(*) as count FROM products WHERE stock_quantity = 0")['count']
+    ];
+    
+    return [
+        'message' => "Inventory Status:\n• Total Products: {$inventory['total_products']}\n• Low Stock Items: {$inventory['low_stock']}\n• Out of Stock: {$inventory['out_of_stock']}",
+        'type' => 'inventory',
+        'data' => $inventory
+    ];
+}
+
+function getFinancialInfo($db, $userRole) {
+    if ($userRole === 'admin') {
+        $today = date('Y-m-d');
+        $thisMonth = date('Y-m');
+        
+        $financial = [
+            'today_revenue' => $db->fetchOne("SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE DATE(created_at) = ?", [$today])['total'],
+            'monthly_revenue' => $db->fetchOne("SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE DATE_FORMAT(created_at, '%Y-%m') = ?", [$thisMonth])['total'],
+            'pending_payments' => $db->fetchOne("SELECT COALESCE(SUM(balance_amount), 0) as total FROM invoices WHERE status != 'paid'")['total']
+        ];
+        
+        return [
+            'message' => "Financial Summary:\n• Today's Revenue: ₹" . number_format($financial['today_revenue']) . "\n• Monthly Revenue: ₹" . number_format($financial['monthly_revenue']) . "\n• Pending Payments: ₹" . number_format($financial['pending_payments']),
+            'type' => 'financial',
+            'data' => $financial
+        ];
+    } elseif ($userRole === 'technician') {
+        $today = date('Y-m-d');
+        $thisMonth = date('Y-m');
+        
+        $financial = [
+            'today_income' => $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM daily_cashbook WHERE user_id = ? AND transaction_type = 'income' AND DATE(transaction_date) = ?", [$_SESSION['user_id'], $today])['total'],
+            'monthly_income' => $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM daily_cashbook WHERE user_id = ? AND transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?", [$_SESSION['user_id'], $thisMonth])['total'],
+            'today_expenses' => $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM daily_cashbook WHERE user_id = ? AND transaction_type = 'expense' AND DATE(transaction_date) = ?", [$_SESSION['user_id'], $today])['total']
+        ];
+        
+        return [
+            'message' => "Your Financial Summary:\n• Today's Income: ₹" . number_format($financial['today_income']) . "\n• Monthly Income: ₹" . number_format($financial['monthly_income']) . "\n• Today's Expenses: ₹" . number_format($financial['today_expenses']),
+            'type' => 'financial',
+            'data' => $financial
+        ];
+    }
+    
+    return [
+        'message' => "Financial information is not available for your role.",
+        'type' => 'restricted'
+    ];
+}
+
+function getReportInfo($db, $userRole) {
+    if ($userRole !== 'admin') {
+        return [
+            'message' => "Reports are only available to administrators.",
+            'type' => 'restricted'
+        ];
+    }
+    
+    return [
+        'message' => "Available Reports:\n• Sales Reports - Revenue and invoice analytics\n• Financial Reports - P&L and cash flow\n• Service Reports - Service performance metrics\n• Customer Reports - Customer analytics\n• Inventory Reports - Stock and product analysis\n\nYou can access these reports from the Reports section in your admin panel.",
+        'type' => 'reports',
+        'suggestions' => [
+            'Generate sales report',
+            'Show financial summary',
+            'View service analytics',
+            'Export customer data'
+        ]
+    ];
 }
 ?>

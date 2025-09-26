@@ -1,54 +1,89 @@
 # Water Purifier ERP System - Apache Configuration
 
-# Enable URL Rewriting
-RewriteEngine On
-
 # Security Headers
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options nosniff
     Header always set X-Frame-Options DENY
     Header always set X-XSS-Protection "1; mode=block"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https:;"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https:;"
 </IfModule>
 
-# Hide sensitive files
-<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|inc|bak)$">
-    Order Allow,Deny
+# Prevent access to sensitive files
+<Files "*.sql">
+    Order allow,deny
     Deny from all
+</Files>
+
+<Files "*.log">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "installed.lock">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files ".htaccess">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "config.php">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Prevent directory browsing
+Options -Indexes
+
+# Custom error pages
+ErrorDocument 404 /404.php
+ErrorDocument 403 /403.php
+ErrorDocument 500 /500.php
+
+# URL Rewriting
+RewriteEngine On
+
+# Force HTTPS (uncomment in production)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# API Routes
+RewriteRule ^api/(.*)$ api/$1 [L]
+
+# Admin Routes
+RewriteRule ^admin/(.*)$ admin/$1 [L]
+
+# Customer Routes
+RewriteRule ^customer/(.*)$ customer/$1 [L]
+
+# Technician Routes
+RewriteRule ^technician/(.*)$ technician/$1 [L]
+
+# Asset Routes
+RewriteRule ^assets/(.*)$ assets/$1 [L]
+
+# File Upload Security
+<FilesMatch "\.(php|php3|php4|php5|phtml|pl|py|jsp|asp|sh|cgi)$">
+    <IfModule mod_rewrite.c>
+        RewriteEngine On
+        RewriteCond %{REQUEST_URI} !^/uploads/
+        RewriteRule ^(.*)$ - [F,L]
+    </IfModule>
 </FilesMatch>
 
-# Protect config directory
-<Directory "config">
-    Order Allow,Deny
-    Deny from all
+# Prevent execution of PHP in uploads directory
+<Directory "uploads">
+    <FilesMatch "\.php$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
 </Directory>
 
-# Protect database directory
-<Directory "database">
-    Order Allow,Deny
-    Deny from all
-</Directory>
-
-# Protect includes directory
-<Directory "includes">
-    Order Allow,Deny
-    Deny from all
-</Directory>
-
-# Protect API directory from direct access (except for specific endpoints)
-<Directory "api">
-    Order Allow,Deny
-    Deny from all
-</Directory>
-
-# Allow specific API endpoints
-<FilesMatch "^(login|logout|forgot-password)\.php$">
-    Order Allow,Deny
-    Allow from all
-</FilesMatch>
-
-# Enable GZIP compression
+# Gzip Compression
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain
     AddOutputFilterByType DEFLATE text/html
@@ -61,7 +96,7 @@ RewriteEngine On
     AddOutputFilterByType DEFLATE application/x-javascript
 </IfModule>
 
-# Set cache headers for static assets
+# Browser Caching
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType text/css "access plus 1 month"
@@ -71,64 +106,79 @@ RewriteEngine On
     ExpiresByType image/jpeg "access plus 1 month"
     ExpiresByType image/gif "access plus 1 month"
     ExpiresByType image/svg+xml "access plus 1 month"
-    ExpiresByType font/woff "access plus 1 month"
-    ExpiresByType font/woff2 "access plus 1 month"
+    ExpiresByType application/pdf "access plus 1 month"
+    ExpiresByType text/html "access plus 1 hour"
 </IfModule>
 
-# Prevent access to PHP files in uploads directory
-<Directory "uploads">
-    <FilesMatch "\.php$">
-        Order Allow,Deny
-        Deny from all
+# Cache Control
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "max-age=2592000, public"
     </FilesMatch>
-</Directory>
+    <FilesMatch "\.(html|htm)$">
+        Header set Cache-Control "max-age=3600, public"
+    </FilesMatch>
+</IfModule>
 
-# Custom error pages
-ErrorDocument 404 /error-pages/404.php
-ErrorDocument 500 /error-pages/500.php
-
-# Force HTTPS (uncomment in production)
-# RewriteCond %{HTTPS} off
-# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-
-# Remove trailing slashes
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{THE_REQUEST} /+[^?\s]*?/[\s?]
-RewriteRule ^(.*)$ /$1 [R=301,L]
-
-# Pretty URLs for main pages
-RewriteRule ^admin/?$ admin/dashboard.php [L]
-RewriteRule ^customer/?$ customer/dashboard.php [L]
-RewriteRule ^technician/?$ technician/dashboard.php [L]
-
-# API routing
-RewriteRule ^api/(.*)$ api/$1 [L]
+# PHP Security Settings
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag log_errors On
+    php_value max_execution_time 30
+    php_value max_input_time 60
+    php_value memory_limit 256M
+    php_value post_max_size 50M
+    php_value upload_max_filesize 50M
+    php_value max_file_uploads 20
+    php_value session.cookie_httponly 1
+    php_value session.cookie_secure 1
+    php_value session.use_only_cookies 1
+</IfModule>
 
 # Block suspicious requests
-RewriteCond %{QUERY_STRING} (\<|%3C).*script.*(\>|%3E) [NC,OR]
-RewriteCond %{QUERY_STRING} GLOBALS(=|\[|\%[0-9A-Z]{0,2}) [OR]
-RewriteCond %{QUERY_STRING} _REQUEST(=|\[|\%[0-9A-Z]{0,2}) [OR]
-RewriteCond %{QUERY_STRING} proc/self/environ [OR]
-RewriteCond %{QUERY_STRING} mosConfig_[a-zA-Z_]{1,21}(=|\%3D) [OR]
-RewriteCond %{QUERY_STRING} base64_(en|de)code[^(]*\([^)]*\) [OR]
-RewriteCond %{QUERY_STRING} (<|%3C)([^s]*s)+cript.*(>|%3E) [NC,OR]
-RewriteCond %{QUERY_STRING} (\<|%3C).*iframe.*(\>|%3E) [NC]
-RewriteRule .* - [F]
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{QUERY_STRING} (\<|%3C).*script.*(\>|%3E) [NC,OR]
+    RewriteCond %{QUERY_STRING} GLOBALS(=|\[|\%[0-9A-Z]{0,2}) [OR]
+    RewriteCond %{QUERY_STRING} _REQUEST(=|\[|\%[0-9A-Z]{0,2}) [OR]
+    RewriteCond %{QUERY_STRING} proc/self/environ [OR]
+    RewriteCond %{QUERY_STRING} mosConfig_[a-zA-Z_]{1,21}(=|\%3D) [OR]
+    RewriteCond %{QUERY_STRING} base64_(en|de)code[^(]*\([^)]*\) [OR]
+    RewriteCond %{QUERY_STRING} (<|%3C)([^s]*s)+cript.*(>|%3E) [NC,OR]
+    RewriteCond %{QUERY_STRING} (\<|%3C).*iframe.*(\>|%3E) [NC]
+    RewriteRule .* - [F]
+</IfModule>
 
-# Limit file upload size (adjust as needed)
-php_value upload_max_filesize 10M
-php_value post_max_size 10M
-php_value max_execution_time 300
-php_value max_input_time 300
+# Prevent access to backup files
+<FilesMatch "\.(bak|backup|old|tmp|temp)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Prevent access to version control files
+<FilesMatch "\.(git|svn|hg)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Custom MIME types
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType text/css .css
+    AddType image/svg+xml .svg
+    AddType application/font-woff .woff
+    AddType application/font-woff2 .woff2
+</IfModule>
+
+# Enable Keep-Alive
+<IfModule mod_headers.c>
+    Header set Connection keep-alive
+</IfModule>
 
 # Disable server signature
 ServerSignature Off
 
-# Disable directory browsing
-Options -Indexes
-
-# Prevent access to version control files
-<FilesMatch "\.(git|svn)">
-    Order Allow,Deny
-    Deny from all
-</FilesMatch>
+# Hide PHP version
+<IfModule mod_headers.c>
+    Header unset X-Powered-By
+</IfModule>
