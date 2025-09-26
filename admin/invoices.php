@@ -503,6 +503,10 @@ function sendInvoice($db, $data) {
                                     </tbody>
                                 </table>
                             </div>
+                                        <!-- hidden totals for submit -->
+                                        <input type="hidden" name="subtotal" value="0">
+                                        <input type="hidden" name="tax_amount" value="0">
+                                        <input type="hidden" name="total_amount" value="0">
                             <button type="button" class="btn btn-sm btn-outline-primary" onclick="addItem()">
                                 <i class="fas fa-plus me-1"></i>Add Item
                             </button>

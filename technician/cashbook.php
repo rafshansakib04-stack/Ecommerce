@@ -401,6 +401,77 @@ function deleteTransaction($db, $transactionId) {
         </div>
     </div>
 
+    <!-- View Transaction Modal -->
+    <div class="modal fade" id="viewTransactionModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-eye me-2"></i>Transaction Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="transactionDetails"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Transaction Modal -->
+    <div class="modal fade" id="editTransactionModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i>Edit Transaction
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editTransactionForm">
+                    <input type="hidden" id="edit_transaction_id" name="id">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="edit_transaction_date" class="form-label">Date *</nlabel>
+                            <input type="date" class="form-control" id="edit_transaction_date" name="transaction_date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_category" class="form-label">Category *</label>
+                            <input type="text" class="form-control" id="edit_category" name="category" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_description" class="form-label">Description *</label>
+                            <textarea class="form-control" id="edit_description" name="description" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_amount" class="form-label">Amount (₹) *</label>
+                            <input type="number" class="form-control" id="edit_amount" name="amount" step="0.01" min="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_payment_method" class="form-label">Payment Method *</label>
+                            <select class="form-select" id="edit_payment_method" name="payment_method" required>
+                                <option value="cash">Cash</option>
+                                <option value="bank">Bank Transfer</option>
+                                <option value="card">Card</option>
+                                <option value="online">Online</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_reference_number" class="form-label">Reference Number</label>
+                            <input type="text" class="form-control" id="edit_reference_number" name="reference_number">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save me-1"></i>Update Transaction
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     <!-- Add Income Modal -->
     <div class="modal fade" id="addIncomeModal" tabindex="-1">
         <div class="modal-dialog">

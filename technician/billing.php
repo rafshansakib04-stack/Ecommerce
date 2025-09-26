@@ -444,6 +444,130 @@ function markBillPaid($db, $data) {
         </div>
     </div>
 
+    <!-- View Bill Modal -->
+    <div class="modal fade" id="viewBillModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-eye me-2"></i>Bill Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="billDetails"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Bill Modal -->
+    <div class="modal fade" id="editBillModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i>Edit Bill
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editBillForm">
+                    <input type="hidden" id="edit_bill_id" name="id">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_customer_name" class="form-label">Customer Name *</label>
+                                <input type="text" class="form-control" id="edit_customer_name" name="customer_name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_customer_phone" class="form-label">Customer Phone</label>
+                                <input type="tel" class="form-control" id="edit_customer_phone" name="customer_phone">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_customer_address" class="form-label">Customer Address</label>
+                            <textarea class="form-control" id="edit_customer_address" name="customer_address" rows="2"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_service_type" class="form-label">Service Type *</label>
+                                <select class="form-select" id="edit_service_type" name="service_type" required>
+                                    <option value="Installation">Installation</option>
+                                    <option value="Maintenance">Maintenance</option>
+                                    <option value="Repair">Repair</option>
+                                    <option value="Replacement">Replacement</option>
+                                    <option value="Service">Service</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_service_date" class="form-label">Service Date *</label>
+                                <input type="date" class="form-control" id="edit_service_date" name="service_date" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_service_description" class="form-label">Service Description</label>
+                            <textarea class="form-control" id="edit_service_description" name="service_description" rows="3"></textarea>
+                        </div>
+                        
+                        <h6 class="mt-4 mb-3">Charges Breakdown</h6>
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label for="edit_labor_charges" class="form-label">Labor Charges (₹)</label>
+                                <input type="number" class="form-control" id="edit_labor_charges" name="labor_charges" step="0.01" min="0" value="0">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="edit_parts_cost" class="form-label">Parts Cost (₹)</label>
+                                <input type="number" class="form-control" id="edit_parts_cost" name="parts_cost" step="0.01" min="0" value="0">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="edit_travel_charges" class="form-label">Travel Charges (₹)</label>
+                                <input type="number" class="form-control" id="edit_travel_charges" name="travel_charges" step="0.01" min="0" value="0">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="edit_other_charges" class="form-label">Other Charges (₹)</label>
+                                <input type="number" class="form-control" id="edit_other_charges" name="other_charges" step="0.01" min="0" value="0">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6>Bill Summary</h6>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Subtotal:</span>
+                                            <span id="edit_bill_subtotal">₹0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Tax (18%):</span>
+                                            <span id="edit_bill_tax">₹0.00</span>
+                                        </div>
+                                        <hr>
+                                        <div class="d-flex justify-content-between fw-bold">
+                                            <span>Total:</span>
+                                            <span id="edit_bill_total">₹0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="edit_notes" class="form-label">Notes</label>
+                                    <textarea class="form-control" id="edit_notes" name="notes" rows="4"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save me-1"></i>Update Bill
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     <!-- Create Bill Modal -->
     <div class="modal fade" id="createBillModal" tabindex="-1">
         <div class="modal-dialog modal-xl">
