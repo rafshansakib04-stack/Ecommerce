@@ -153,7 +153,8 @@ function updatePaymentSettings($db, $data) {
         $settings = [
             'payment_provider' => $data['payment_provider'],
             'razorpay_key_id' => $data['razorpay_key_id'] ?? '',
-            'razorpay_key_secret' => $data['razorpay_key_secret'] ?? ''
+            'razorpay_key_secret' => $data['razorpay_key_secret'] ?? '',
+            'razorpay_webhook_secret' => $data['razorpay_webhook_secret'] ?? ''
         ];
         foreach ($settings as $key => $value) {
             $db->execute("
@@ -488,6 +489,12 @@ function testSMS($data) {
                                         <div class="col-md-6 mb-3">
                                             <label for="razorpay_key_secret" class="form-label">Razorpay Key Secret</label>
                                             <input type="password" class="form-control" id="razorpay_key_secret" name="razorpay_key_secret" value="<?php echo htmlspecialchars($settingsArray['razorpay_key_secret'] ?? ''); ?>">
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="razorpay_webhook_secret" class="form-label">Razorpay Webhook Secret</label>
+                                            <input type="password" class="form-control" id="razorpay_webhook_secret" name="razorpay_webhook_secret" value="<?php echo htmlspecialchars($settingsArray['razorpay_webhook_secret'] ?? ''); ?>">
                                         </div>
                                     </div>
                                     <div class="text-end">
