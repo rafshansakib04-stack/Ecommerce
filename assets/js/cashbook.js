@@ -11,6 +11,7 @@ $(document).ready(function() {
     // Form submissions
     $('#addIncomeForm').submit(handleAddIncome);
     $('#addExpenseForm').submit(handleAddExpense);
+    $('#editTransactionForm').submit(handleEditTransaction);
 });
 
 function initializeCashbookManagement() {
@@ -19,6 +20,36 @@ function initializeCashbookManagement() {
         const $btn = $(this);
         if ($btn.hasClass('btn-success') || $btn.hasClass('btn-danger')) {
             $btn.prop('disabled', true);
+        }
+    });
+}
+
+function handleEditTransaction(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    formData.append('action', 'update_transaction');
+
+    $.ajax({
+        url: 'cashbook.php',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                showAlert('Transaction updated successfully!', 'success');
+                $('#editTransactionModal').modal('hide');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        },
+        error: function() {
+            showAlert('Error updating transaction. Please try again.', 'danger');
+        },
+        complete: function() {
+            $('#editTransactionForm button[type="submit"]').prop('disabled', false);
         }
     });
 }

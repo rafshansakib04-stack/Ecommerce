@@ -19,6 +19,7 @@ $(document).ready(function() {
     // Form submissions
     $('#createBillForm').submit(handleCreateBill);
     $('#markPaidForm').submit(handleMarkPaid);
+    $('#editBillForm').submit(handleEditBill);
     
     // Initialize calculations
     calculateTotal();
@@ -39,6 +40,36 @@ function debounceSearch(searchTerm) {
     window.searchTimeout = setTimeout(function() {
         applyFilters();
     }, 500);
+}
+
+function handleEditBill(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    formData.append('action', 'update_bill');
+
+    $.ajax({
+        url: 'billing.php',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                showAlert('Bill updated successfully!', 'success');
+                $('#editBillModal').modal('hide');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        },
+        error: function() {
+            showAlert('Error updating bill. Please try again.', 'danger');
+        },
+        complete: function() {
+            $('#editBillForm button[type="submit"]').prop('disabled', false);
+        }
+    });
 }
 
 function applyFilters() {

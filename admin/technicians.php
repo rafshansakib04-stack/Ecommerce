@@ -509,6 +509,79 @@ function updateTechnicianStatus($db, $data) {
         </div>
     </div>
 
+    <!-- Edit Technician Modal -->
+    <div class="modal fade" id="editTechnicianModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-user-edit me-2"></i>Edit Technician
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editTechnicianForm">
+                    <input type="hidden" id="edit_technician_id" name="id">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_employee_id" class="form-label">Employee ID *</label>
+                                <input type="text" class="form-control" id="edit_employee_id" name="employee_id" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_full_name" class="form-label">Full Name *</label>
+                                <input type="text" class="form-control" id="edit_full_name" name="full_name" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_email" class="form-label">Email *</label>
+                                <input type="email" class="form-control" id="edit_email" name="email" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_phone" class="form-label">Phone *</label>
+                                <input type="tel" class="form-control" id="edit_phone" name="phone" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_skills" class="form-label">Skills</label>
+                            <textarea class="form-control" id="edit_skills" name="skills" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_service_areas" class="form-label">Service Areas</label>
+                            <textarea class="form-control" id="edit_service_areas" name="service_areas" rows="2"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_emergency_contact" class="form-label">Emergency Contact</label>
+                                <input type="tel" class="form-control" id="edit_emergency_contact" name="emergency_contact">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_joining_date" class="form-label">Joining Date</label>
+                                <input type="date" class="form-control" id="edit_joining_date" name="joining_date">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_salary" class="form-label">Salary (₹)</label>
+                                <input type="number" class="form-control" id="edit_salary" name="salary" step="0.01" min="0">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_commission_rate" class="form-label">Commission Rate (%)</label>
+                                <input type="number" class="form-control" id="edit_commission_rate" name="commission_rate" step="0.01" min="0" max="100">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save me-1"></i>Update Technician
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="../assets/js/technicians.js"></script>

@@ -19,6 +19,7 @@ $(document).ready(function() {
     // Form submissions
     $('#addProductForm').submit(handleAddProduct);
     $('#updateStockForm').submit(handleUpdateStock);
+    $('#editProductForm').submit(handleEditProduct);
 });
 
 function initializeProductManagement() {
@@ -27,6 +28,36 @@ function initializeProductManagement() {
         const $btn = $(this);
         if ($btn.hasClass('btn-primary') || $btn.hasClass('btn-warning')) {
             $btn.prop('disabled', true);
+        }
+    });
+}
+
+function handleEditProduct(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    formData.append('action', 'update_product');
+
+    $.ajax({
+        url: 'products.php',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                showAlert('Product updated successfully!', 'success');
+                $('#editProductModal').modal('hide');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        },
+        error: function() {
+            showAlert('Error updating product. Please try again.', 'danger');
+        },
+        complete: function() {
+            $('#editProductForm button[type="submit"]').prop('disabled', false);
         }
     });
 }

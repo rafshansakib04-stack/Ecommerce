@@ -19,6 +19,7 @@ $(document).ready(function() {
     // Form submissions
     $('#addTechnicianForm').submit(handleAddTechnician);
     $('#updateStatusForm').submit(handleUpdateStatus);
+    $('#editTechnicianForm').submit(handleEditTechnician);
 });
 
 function initializeTechnicianManagement() {
@@ -27,6 +28,36 @@ function initializeTechnicianManagement() {
         const $btn = $(this);
         if ($btn.hasClass('btn-primary') || $btn.hasClass('btn-warning')) {
             $btn.prop('disabled', true);
+        }
+    });
+}
+
+function handleEditTechnician(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    formData.append('action', 'update_technician');
+
+    $.ajax({
+        url: 'technicians.php',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                showAlert('Technician updated successfully!', 'success');
+                $('#editTechnicianModal').modal('hide');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        },
+        error: function() {
+            showAlert('Error updating technician. Please try again.', 'danger');
+        },
+        complete: function() {
+            $('#editTechnicianForm button[type="submit"]').prop('disabled', false);
         }
     });
 }
