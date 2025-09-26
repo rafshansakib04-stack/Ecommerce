@@ -38,25 +38,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// Get customers with pagination and search
+// Get customers with pagination, search, and filters
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 10;
 $offset = ($page - 1) * $limit;
 $search = $_GET['search'] ?? '';
+$segment_filter = $_GET['segment'] ?? '';
+$credit_filter = $_GET['credit'] ?? '';
+$status_filter = $_GET['status'] ?? '';
 
 $whereClause = '';
 $params = [];
 
+$whereConditions = [];
 if (!empty($search)) {
-    $whereClause = "WHERE (c.company_name LIKE ? OR c.contact_person LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)";
+    $whereConditions[] = "(c.company_name LIKE ? OR c.contact_person LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)";
     $searchTerm = "%$search%";
-    $params = [$searchTerm, $searchTerm, $searchTerm, $searchTerm];
+    $params = array_merge($params, [$searchTerm, $searchTerm, $searchTerm, $searchTerm]);
+}
+
+if (!empty($segment_filter)) {
+    $whereConditions[] = "c.segment = ?";
+    $params[] = $segment_filter;
+}
+
+if (!empty($credit_filter)) {
+    switch ($credit_filter) {
+        case 'high':
+            $whereConditions[] = "c.credit_limit >= 100000";
+            break;
+        case 'medium':
+            $whereConditions[] = "c.credit_limit BETWEEN 50000 AND 99999";
+            break;
+        case 'low':
+            $whereConditions[] = "c.credit_limit < 50000";
+            break;
+    }
+}
+
+if (!empty($status_filter)) {
+    $whereConditions[] = "u.status = ?";
+    $params[] = $status_filter;
+}
+
+if (!empty($whereConditions)) {
+    $whereClause = "WHERE " . implode(' AND ', $whereConditions);
 }
 
 $customers = $db->fetchAll("
     SELECT c.*, u.username, u.email, u.phone, u.status as user_status,
            (SELECT COUNT(*) FROM service_requests sr WHERE sr.customer_id = c.id) as total_services,
-           (SELECT COALESCE(SUM(i.total_amount), 0) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') as total_paid
+           (SELECT COALESCE(SUM(i.total_amount), 0) FROM invoices i WHERE i.customer_id = c.id AND i.status = 'paid') as total_paid,
+           (SELECT COALESCE(SUM(cl.balance), 0) FROM customer_ledger cl WHERE cl.customer_id = c.id) as current_balance,
+           (SELECT COUNT(*) FROM service_requests sr WHERE sr.customer_id = c.id AND sr.status = 'completed' AND DATE(sr.created_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)) as recent_services
     FROM customers c 
     JOIN users u ON c.user_id = u.id 
     $whereClause
@@ -72,6 +106,35 @@ $totalCustomers = $db->fetchOne("
 ", $params)['count'];
 
 $totalPages = ceil($totalCustomers / $limit);
+
+// Get customer analytics
+$customerAnalytics = $db->fetchAll("
+    SELECT 
+        c.segment,
+        COUNT(*) as customer_count,
+        AVG(c.credit_limit) as avg_credit_limit,
+        SUM(COALESCE(cl.balance, 0)) as total_balance
+    FROM customers c
+    LEFT JOIN customer_ledger cl ON c.id = cl.customer_id
+    GROUP BY c.segment
+    ORDER BY customer_count DESC
+");
+
+// Get top customers by revenue
+$topCustomers = $db->fetchAll("
+    SELECT c.company_name, c.contact_person, 
+           COALESCE(SUM(i.total_amount), 0) as total_revenue,
+           COUNT(sr.id) as total_services
+    FROM customers c
+    LEFT JOIN invoices i ON c.id = i.customer_id AND i.status = 'paid'
+    LEFT JOIN service_requests sr ON c.id = sr.customer_id
+    GROUP BY c.id, c.company_name, c.contact_person
+    ORDER BY total_revenue DESC
+    LIMIT 10
+");
+
+// Get customer segments for filter dropdown
+$segments = $db->fetchAll("SELECT DISTINCT segment FROM customers WHERE segment IS NOT NULL ORDER BY segment");
 
 function addCustomer($db, $data) {
     try {
@@ -313,17 +376,109 @@ function sendCustomerCredentials($db, $customerId) {
                         </button>
                     </div>
                     <div class="card-body">
-                        <!-- Search and Filters -->
+                        <!-- Customer Analytics Dashboard -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h5 class="card-title">Total Customers</h5>
+                                                <h3><?php echo $totalCustomers; ?></h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-users fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h5 class="card-title">Active Customers</h5>
+                                                <h3><?php echo count(array_filter($customers, function($c) { return $c['user_status'] === 'active'; })); ?></h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-user-check fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h5 class="card-title">Avg Credit Limit</h5>
+                                                <h3>₹<?php echo number_format(array_sum(array_column($customers, 'credit_limit')) / max(count($customers), 1)); ?></h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-credit-card fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-warning text-white">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h5 class="card-title">Top Revenue</h5>
+                                                <h3>₹<?php echo number_format(max(array_column($customers, 'total_paid'))); ?></h3>
+                                            </div>
+                                            <div class="align-self-center">
+                                                <i class="fas fa-chart-line fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Advanced Search and Filters -->
                         <div class="row mb-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-search"></i></span>
                                     <input type="text" class="form-control" id="searchInput" placeholder="Search customers..." value="<?php echo htmlspecialchars($search); ?>">
                                 </div>
                             </div>
-                            <div class="col-md-6 text-end">
-                                <button class="btn btn-outline-primary" onclick="exportCustomers()">
+                            <div class="col-md-2">
+                                <select class="form-select" id="segmentFilter">
+                                    <option value="">All Segments</option>
+                                    <?php foreach ($segments as $segment): ?>
+                                    <option value="<?php echo htmlspecialchars($segment['segment']); ?>" <?php echo $segment_filter === $segment['segment'] ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($segment['segment']); ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="creditFilter">
+                                    <option value="">All Credit Levels</option>
+                                    <option value="high" <?php echo $credit_filter === 'high' ? 'selected' : ''; ?>>High (₹1L+)</option>
+                                    <option value="medium" <?php echo $credit_filter === 'medium' ? 'selected' : ''; ?>>Medium (₹50K-₹1L)</option>
+                                    <option value="low" <?php echo $credit_filter === 'low' ? 'selected' : ''; ?>>Low (<₹50K)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="statusFilter">
+                                    <option value="">All Status</option>
+                                    <option value="active" <?php echo $status_filter === 'active' ? 'selected' : ''; ?>>Active</option>
+                                    <option value="inactive" <?php echo $status_filter === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button class="btn btn-outline-primary me-2" onclick="exportCustomers()">
                                     <i class="fas fa-download me-1"></i>Export
+                                </button>
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#analyticsModal">
+                                    <i class="fas fa-chart-bar me-1"></i>Analytics
                                 </button>
                             </div>
                         </div>
@@ -335,8 +490,11 @@ function sendCustomerCredentials($db, $customerId) {
                                     <tr>
                                         <th>Customer</th>
                                         <th>Contact</th>
+                                        <th>Segment</th>
+                                        <th>Credit Limit</th>
+                                        <th>Balance</th>
                                         <th>Services</th>
-                                        <th>Total Paid</th>
+                                        <th>Revenue</th>
                                         <th>Status</th>
                                         <th>Actions</th>
                                     </tr>
@@ -359,7 +517,23 @@ function sendCustomerCredentials($db, $customerId) {
                                             </div>
                                         </td>
                                         <td>
+                                            <span class="badge bg-<?php echo getSegmentBadge($customer['segment'] ?? 'Standard'); ?>">
+                                                <?php echo htmlspecialchars($customer['segment'] ?? 'Standard'); ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <strong><?php echo formatCurrency($customer['credit_limit'] ?? 0); ?></strong>
+                                        </td>
+                                        <td>
+                                            <span class="<?php echo ($customer['current_balance'] ?? 0) < 0 ? 'text-danger' : 'text-success'; ?>">
+                                                <?php echo formatCurrency($customer['current_balance'] ?? 0); ?>
+                                            </span>
+                                        </td>
+                                        <td>
                                             <span class="badge bg-info"><?php echo $customer['total_services']; ?> Services</span>
+                                            <?php if ($customer['recent_services'] > 0): ?>
+                                            <br><small class="text-success">+<?php echo $customer['recent_services']; ?> this month</small>
+                                            <?php endif; ?>
                                         </td>
                                         <td>
                                             <strong><?php echo formatCurrency($customer['total_paid']); ?></strong>
@@ -592,6 +766,90 @@ function sendCustomerCredentials($db, $customerId) {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Analytics Modal -->
+    <div class="modal fade" id="analyticsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-chart-bar me-2"></i>Customer Analytics
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <!-- Segment Distribution -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Customer Segments</h6>
+                                </div>
+                                <div class="card-body">
+                                    <?php foreach ($customerAnalytics as $analytics): ?>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="badge bg-<?php echo getSegmentBadge($analytics['segment']); ?>">
+                                            <?php echo htmlspecialchars($analytics['segment']); ?>
+                                        </span>
+                                        <div class="text-end">
+                                            <strong><?php echo $analytics['customer_count']; ?> customers</strong><br>
+                                            <small class="text-muted">Avg Credit: ₹<?php echo number_format($analytics['avg_credit_limit']); ?></small>
+                                        </div>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Top Customers -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Top Customers by Revenue</h6>
+                                </div>
+                                <div class="card-body">
+                                    <?php foreach ($topCustomers as $index => $customer): ?>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <strong><?php echo htmlspecialchars($customer['company_name'] ?: $customer['contact_person']); ?></strong><br>
+                                            <small class="text-muted"><?php echo $customer['total_services']; ?> services</small>
+                                        </div>
+                                        <div class="text-end">
+                                            <strong>₹<?php echo number_format($customer['total_revenue']); ?></strong>
+                                        </div>
+                                    </div>
+                                    <?php if ($index < count($topCustomers) - 1): ?>
+                                    <hr class="my-2">
+                                    <?php endif; ?>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Customer Growth Chart -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Customer Growth Over Time</h6>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="customerGrowthChart" height="100"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="exportAnalytics()">
+                        <i class="fas fa-download me-1"></i>Export Analytics
+                    </button>
                 </div>
             </div>
         </div>

@@ -11,6 +11,11 @@ $(document).ready(function() {
         }
     });
     
+    // Filter functionality
+    $('#segmentFilter, #creditFilter, #statusFilter').on('change', function() {
+        applyFilters();
+    });
+    
     // Form submissions
     $('#addCustomerForm').submit(handleAddCustomer);
     $('#editCustomerForm').submit(handleEditCustomer);
@@ -38,6 +43,41 @@ function performSearch(searchTerm) {
     currentUrl.searchParams.set('search', searchTerm);
     currentUrl.searchParams.delete('page'); // Reset to first page
     window.location.href = currentUrl.toString();
+}
+
+function applyFilters() {
+    const search = $('#searchInput').val();
+    const segment = $('#segmentFilter').val();
+    const credit = $('#creditFilter').val();
+    const status = $('#statusFilter').val();
+    
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (segment) params.set('segment', segment);
+    if (credit) params.set('credit', credit);
+    if (status) params.set('status', status);
+    
+    window.location.href = 'customers.php?' + params.toString();
+}
+
+function exportCustomers() {
+    const search = $('#searchInput').val();
+    const segment = $('#segmentFilter').val();
+    const credit = $('#creditFilter').val();
+    const status = $('#statusFilter').val();
+    
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (segment) params.set('segment', segment);
+    if (credit) params.set('credit', credit);
+    if (status) params.set('status', status);
+    params.set('export', '1');
+    
+    window.open('customers.php?' + params.toString(), '_blank');
+}
+
+function exportAnalytics() {
+    window.open('../api/customers/analytics-export.php', '_blank');
 }
 
 function handleAddCustomer(e) {

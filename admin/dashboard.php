@@ -127,6 +127,14 @@ $revenue_data = $db->fetchAll("
                     </li>
                 </ul>
                 <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <button class="btn btn-link nav-link position-relative" data-bs-toggle="offcanvas" data-bs-target="#notificationDrawer">
+                            <i class="fas fa-bell"></i>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="navNotificationCount">
+                                0
+                            </span>
+                        </button>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-user-circle me-1"></i><?php echo $_SESSION['username']; ?>
@@ -134,6 +142,7 @@ $revenue_data = $db->fetchAll("
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="profile.php">Profile</a></li>
                             <li><a class="dropdown-item" href="settings.php">Settings</a></li>
+                            <li><a class="dropdown-item" href="audit-log.php">Audit Log</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="../api/auth/logout.php">Logout</a></li>
                         </ul>
@@ -143,61 +152,162 @@ $revenue_data = $db->fetchAll("
         </div>
     </nav>
 
+    <!-- Dashboard Controls -->
     <div class="container-fluid mt-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h4 class="mb-0">
+                                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                                    <span class="badge bg-primary ms-2" id="liveIndicator">
+                                        <i class="fas fa-circle text-success me-1"></i>Live
+                                    </span>
+                                </h4>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <div class="btn-group me-2" role="group">
+                                    <button type="button" class="btn btn-outline-primary" id="refreshBtn">
+                                        <i class="fas fa-sync-alt me-1"></i>Refresh
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary" id="exportBtn">
+                                        <i class="fas fa-download me-1"></i>Export
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary" id="darkModeToggle">
+                                        <i class="fas fa-moon me-1"></i>Dark Mode
+                                    </button>
+                                </div>
+                                <div class="btn-group" role="group">
+                                    <input type="date" class="form-control" id="dateFrom" value="<?php echo date('Y-m-01'); ?>">
+                                    <input type="date" class="form-control" id="dateTo" value="<?php echo date('Y-m-d'); ?>">
+                                    <button type="button" class="btn btn-primary" id="applyDateFilter">
+                                        <i class="fas fa-filter me-1"></i>Apply
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Center -->
+        <div class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+            <div id="notificationContainer"></div>
+        </div>
+
+        <!-- Notification Center Drawer -->
+        <div class="offcanvas offcanvas-end" tabindex="-1" id="notificationDrawer">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title">
+                    <i class="fas fa-bell me-2"></i>Notifications
+                    <span class="badge bg-danger ms-2" id="notificationCount">0</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+            </div>
+            <div class="offcanvas-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <button class="btn btn-sm btn-outline-primary" id="markAllRead">
+                        <i class="fas fa-check-double me-1"></i>Mark All Read
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" id="clearAll">
+                        <i class="fas fa-trash me-1"></i>Clear All
+                    </button>
+                </div>
+                <div id="notificationList">
+                    <!-- Notifications will be loaded here -->
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <!-- Statistics Cards -->
             <div class="col-lg-3 col-md-6 mb-4">
-                <div class="dashboard-card success">
+                <div class="dashboard-card success" data-widget="customers">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <div class="stat-number"><?php echo $stats['total_customers']; ?></div>
                             <div class="stat-label">Total Customers</div>
+                            <div class="stat-change text-success">
+                                <i class="fas fa-arrow-up me-1"></i>+12% this month
+                            </div>
                         </div>
                         <div class="stat-icon text-success">
                             <i class="fas fa-users"></i>
                         </div>
                     </div>
+                    <div class="card-actions">
+                        <button class="btn btn-sm btn-outline-success" onclick="viewCustomers()">
+                            <i class="fas fa-eye me-1"></i>View
+                        </button>
+                    </div>
                 </div>
             </div>
             
             <div class="col-lg-3 col-md-6 mb-4">
-                <div class="dashboard-card info">
+                <div class="dashboard-card info" data-widget="technicians">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <div class="stat-number"><?php echo $stats['total_technicians']; ?></div>
                             <div class="stat-label">Active Technicians</div>
+                            <div class="stat-change text-info">
+                                <i class="fas fa-arrow-up me-1"></i>+3 this week
+                            </div>
                         </div>
                         <div class="stat-icon text-info">
                             <i class="fas fa-tools"></i>
                         </div>
                     </div>
-                </div>
-            </div>
-            
-            <div class="col-lg-3 col-md-6 mb-4">
-                <div class="dashboard-card warning">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="stat-number"><?php echo $stats['pending_services']; ?></div>
-                            <div class="stat-label">Pending Services</div>
-                        </div>
-                        <div class="stat-icon text-warning">
-                            <i class="fas fa-clock"></i>
-                        </div>
+                    <div class="card-actions">
+                        <button class="btn btn-sm btn-outline-info" onclick="viewTechnicians()">
+                            <i class="fas fa-eye me-1"></i>View
+                        </button>
                     </div>
                 </div>
             </div>
             
             <div class="col-lg-3 col-md-6 mb-4">
-                <div class="dashboard-card danger">
+                <div class="dashboard-card warning" data-widget="pending-services">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-number"><?php echo $stats['pending_services']; ?></div>
+                            <div class="stat-label">Pending Services</div>
+                            <div class="stat-change text-warning">
+                                <i class="fas fa-clock me-1"></i>Needs attention
+                            </div>
+                        </div>
+                        <div class="stat-icon text-warning">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-sm btn-outline-warning" onclick="viewPendingServices()">
+                            <i class="fas fa-eye me-1"></i>View
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="dashboard-card danger" data-widget="low-stock">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <div class="stat-number"><?php echo $stats['low_stock']; ?></div>
                             <div class="stat-label">Low Stock Items</div>
+                            <div class="stat-change text-danger">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Restock needed
+                            </div>
                         </div>
                         <div class="stat-icon text-danger">
                             <i class="fas fa-exclamation-triangle"></i>
                         </div>
+                    </div>
+                    <div class="card-actions">
+                        <button class="btn btn-sm btn-outline-danger" onclick="viewLowStock()">
+                            <i class="fas fa-eye me-1"></i>View
+                        </button>
                     </div>
                 </div>
             </div>
@@ -372,7 +482,7 @@ $revenue_data = $db->fetchAll("
         // Revenue Chart
         const revenueData = <?php echo json_encode($revenue_data); ?>;
         const ctx = document.getElementById('revenueChart').getContext('2d');
-        new Chart(ctx, {
+        window.revenueChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: revenueData.map(item => item.date),

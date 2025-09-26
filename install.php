@@ -136,6 +136,18 @@ function createTables($db) {
             }
         }
     }
+
+    // Create notifications table if present
+    if (file_exists('database/notifications.sql')) {
+        $notifSchema = file_get_contents('database/notifications.sql');
+        $notifStatements = explode(';', $notifSchema);
+        foreach ($notifStatements as $statement) {
+            $statement = trim($statement);
+            if (!empty($statement)) {
+                $db->execute($statement);
+            }
+        }
+    }
 }
 
 function insertSystemSettings($db) {

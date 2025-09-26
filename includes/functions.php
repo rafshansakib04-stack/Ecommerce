@@ -171,6 +171,26 @@ function getStatusBadge($status) {
     return $badges[$status] ?? 'secondary';
 }
 
+function getSegmentBadge($segment) {
+    $badges = [
+        'Premium' => 'success',
+        'Gold' => 'warning',
+        'Silver' => 'info',
+        'Standard' => 'secondary',
+        'Enterprise' => 'primary'
+    ];
+    return $badges[$segment] ?? 'secondary';
+}
+
+function getRoleBadgeColor($role) {
+    $colors = [
+        'admin' => 'danger',
+        'technician' => 'info',
+        'customer' => 'success'
+    ];
+    return $colors[$role] ?? 'secondary';
+}
+
 function logActivity($userId, $action, $details = '') {
     $db = Database::getInstance();
     $db->insert('activity_logs', [
