@@ -44,6 +44,7 @@ $limit = 10;
 $offset = ($page - 1) * $limit;
 $search = $_GET['search'] ?? '';
 $category = $_GET['category'] ?? '';
+$lowStockOnly = isset($_GET['low_stock']) && $_GET['low_stock'] == '1';
 
 $whereConditions = [];
 $params = [];
@@ -57,6 +58,10 @@ if (!empty($search)) {
 if (!empty($category)) {
     $whereConditions[] = "p.category_id = ?";
     $params[] = $category;
+}
+
+if ($lowStockOnly) {
+    $whereConditions[] = "p.stock_quantity <= p.min_stock_level";
 }
 
 $whereClause = !empty($whereConditions) ? 'WHERE ' . implode(' AND ', $whereConditions) : '';
