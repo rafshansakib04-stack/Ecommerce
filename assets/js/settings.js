@@ -8,6 +8,7 @@ $(document).ready(function() {
     $('#emailSettingsForm').submit(handleEmailSettings);
     $('#smsSettingsForm').submit(handleSMSSettings);
     $('#firebaseSettingsForm').submit(handleFirebaseSettings);
+    $('#paymentSettingsForm').submit(handlePaymentSettings);
     $('#testEmailForm').submit(handleTestEmail);
     $('#testSMSForm').submit(handleTestSMS);
 });
@@ -48,6 +49,34 @@ function handleGeneralSettings(e) {
         complete: function() {
             // Re-enable button
             $('#generalSettingsForm button[type="submit"]').prop('disabled', false);
+        }
+    });
+}
+
+function handlePaymentSettings(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    formData.append('action', 'update_payment_settings');
+
+    $.ajax({
+        url: 'settings.php',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                showAlert('Payment settings updated successfully!', 'success');
+            } else {
+                showAlert(response.message, 'danger');
+            }
+        },
+        error: function() {
+            showAlert('Error updating payment settings. Please try again.', 'danger');
+        },
+        complete: function() {
+            $('#paymentSettingsForm button[type="submit"]').prop('disabled', false);
         }
     });
 }
