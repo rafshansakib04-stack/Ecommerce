@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 session_start();
 
 require_once '../../config/database.php';
+require_once '../../config/firebase.php';
 require_once '../../includes/functions.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -12,10 +13,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
+    // Get input data
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (!$input) {
         $input = $_POST;
+    }
+    
+    // Validate input
+    if (!$input || !is_array($input)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid request data']);
+        exit();
     }
     
     $username = sanitizeInput($input['username'] ?? '');
@@ -27,7 +35,14 @@ try {
         exit();
     }
     
-    $db = Database::getInstance();
+    // Test database connection
+    try {
+        $db = Database::getInstance();
+    } catch (Exception $e) {
+        error_log("Database connection error in login: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'Database connection failed. Please try again.']);
+        exit();
+    }
     
     // Get user by username or email
     $user = $db->fetchOne(
@@ -79,14 +94,19 @@ try {
     // Log activity
     logActivity($user['id'], 'login', 'User logged in successfully');
     
-    // Send real-time notification via Firebase
-    $firebase = new FirebaseService();
-    $firebase->updateRealtimeData('notifications/' . $user['id'], [
-        'title' => 'Login Successful',
-        'message' => 'You have successfully logged in to the system',
-        'timestamp' => time(),
-        'type' => 'success'
-    ]);
+    // Send real-time notification via Firebase (optional)
+    try {
+        $firebase = new FirebaseService();
+        $firebase->updateRealtimeData('notifications/' . $user['id'], [
+            'title' => 'Login Successful',
+            'message' => 'You have successfully logged in to the system',
+            'timestamp' => time(),
+            'type' => 'success'
+        ]);
+    } catch (Exception $e) {
+        // Log Firebase error but don't fail login
+        error_log("Firebase notification error: " . $e->getMessage());
+    }
     
     echo json_encode([
         'success' => true,

@@ -1,10 +1,18 @@
 <?php
-// Database Configuration
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'water_purifier_erp');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_CHARSET', 'utf8mb4');
+// Database Configuration with Environment Detection
+require_once __DIR__ . '/environment.php';
+
+// Setup error reporting based on environment
+Environment::setupErrorReporting();
+
+// Get database configuration based on environment
+$dbConfig = Environment::getDatabaseConfig();
+
+define('DB_HOST', $dbConfig['host']);
+define('DB_NAME', $dbConfig['name']);
+define('DB_USER', $dbConfig['user']);
+define('DB_PASS', $dbConfig['pass']);
+define('DB_CHARSET', $dbConfig['charset']);
 
 class Database {
     private $connection;
@@ -17,9 +25,24 @@ class Database {
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::ATTR_TIMEOUT => 10,
             ]);
+            
+            // Test the connection
+            $this->connection->query("SELECT 1");
+            
         } catch (PDOException $e) {
-            die("Database connection failed: " . $e->getMessage());
+            // Log the error for debugging
+            error_log("Database connection failed: " . $e->getMessage());
+            error_log("Connection details - Host: " . DB_HOST . ", DB: " . DB_NAME . ", User: " . DB_USER);
+            
+            // Show user-friendly error message
+            if (Environment::isLocal()) {
+                die("Database connection failed: " . $e->getMessage() . 
+                    "<br><br>Please check your database configuration in config/database.php");
+            } else {
+                die("Database connection failed. Please contact the administrator.");
+            }
         }
     }
     

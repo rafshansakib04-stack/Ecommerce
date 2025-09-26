@@ -1,9 +1,14 @@
 <?php
-// Firebase Configuration
-define('FIREBASE_PROJECT_ID', 'water-purifier-erp');
-define('FIREBASE_API_KEY', 'your-firebase-api-key');
-define('FIREBASE_AUTH_DOMAIN', 'water-purifier-erp.firebaseapp.com');
-define('FIREBASE_DATABASE_URL', 'https://water-purifier-erp-default-rtdb.firebaseio.com/');
+// Firebase Configuration with Environment Detection
+require_once __DIR__ . '/environment.php';
+
+// Get Firebase configuration based on environment
+$firebaseConfig = Environment::getFirebaseConfig();
+
+define('FIREBASE_PROJECT_ID', $firebaseConfig['project_id']);
+define('FIREBASE_API_KEY', $firebaseConfig['api_key']);
+define('FIREBASE_AUTH_DOMAIN', $firebaseConfig['auth_domain']);
+define('FIREBASE_DATABASE_URL', $firebaseConfig['database_url']);
 
 class FirebaseService {
     private $apiKey;

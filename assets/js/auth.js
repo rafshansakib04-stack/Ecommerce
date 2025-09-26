@@ -39,6 +39,7 @@ $(document).ready(function() {
             method: 'POST',
             data: formData,
             dataType: 'json',
+            timeout: 10000, // 10 second timeout
             success: function(response) {
                 $('#loadingModal').modal('hide');
                 
@@ -67,8 +68,36 @@ $(document).ready(function() {
             },
             error: function(xhr, status, error) {
                 $('#loadingModal').modal('hide');
-                showAlert('Connection error. Please try again.', 'danger');
-                console.error('Login error:', error);
+                
+                let errorMessage = 'Connection error. Please try again.';
+                
+                if (xhr.status === 0) {
+                    errorMessage = 'Network error. Please check your internet connection.';
+                } else if (xhr.status === 404) {
+                    errorMessage = 'Login service not found. Please check the server configuration.';
+                } else if (xhr.status === 500) {
+                    errorMessage = 'Server error. Please try again later.';
+                } else if (xhr.status === 403) {
+                    errorMessage = 'Access denied. Please check your permissions.';
+                }
+                
+                // Try to parse error response
+                try {
+                    const errorResponse = JSON.parse(xhr.responseText);
+                    if (errorResponse.message) {
+                        errorMessage = errorResponse.message;
+                    }
+                } catch (e) {
+                    // Use default error message
+                }
+                
+                showAlert(errorMessage, 'danger');
+                console.error('Login error:', {
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    responseText: xhr.responseText,
+                    error: error
+                });
             }
         });
     });

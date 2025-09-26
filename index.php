@@ -66,6 +66,9 @@ if (isset($_SESSION['user_id'])) {
                             <p class="text-muted">Enter your credentials to access your panel</p>
                         </div>
                         
+                        <!-- Alert Messages -->
+                        <div id="loginAlert" class="alert d-none" role="alert"></div>
+                        
                         <form id="loginForm">
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username</label>
