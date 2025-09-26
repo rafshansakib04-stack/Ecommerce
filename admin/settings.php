@@ -67,7 +67,8 @@ function updateGeneralSettings($db, $data) {
             'currency' => $data['currency'],
             'tax_rate' => $data['tax_rate'],
             'invoice_prefix' => $data['invoice_prefix'],
-            'invoice_number_start' => $data['invoice_number_start']
+            'invoice_number_start' => $data['invoice_number_start'],
+            'google_maps_api_key' => $data['google_maps_api_key'] ?? ''
         ];
         
         foreach ($settings as $key => $value) {
@@ -325,6 +326,12 @@ function testSMS($data) {
                                             <input type="number" class="form-control" id="invoice_number_start" name="invoice_number_start" min="1" value="<?php echo htmlspecialchars($settingsArray['invoice_number_start'] ?? '1001'); ?>">
                                         </div>
                                     </div>
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label for="google_maps_api_key" class="form-label">Google Maps API Key</label>
+                                    <input type="text" class="form-control" id="google_maps_api_key" name="google_maps_api_key" value="<?php echo htmlspecialchars($settingsArray['google_maps_api_key'] ?? ''); ?>" placeholder="AIza...">
+                                </div>
+                            </div>
                                     <div class="text-end">
                                         <button type="submit" class="btn btn-primary">
                                             <i class="fas fa-save me-1"></i>Save General Settings
