@@ -100,6 +100,18 @@ function createTables($db) {
             $db->execute($statement);
         }
     }
+
+    // Create AI conversations table if present
+    if (file_exists('database/ai_conversations.sql')) {
+        $aiSchema = file_get_contents('database/ai_conversations.sql');
+        $aiStatements = explode(';', $aiSchema);
+        foreach ($aiStatements as $statement) {
+            $statement = trim($statement);
+            if (!empty($statement)) {
+                $db->execute($statement);
+            }
+        }
+    }
 }
 
 function insertSystemSettings($db) {

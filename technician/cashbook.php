@@ -433,7 +433,7 @@ function deleteTransaction($db, $transactionId) {
                     <input type="hidden" id="edit_transaction_id" name="id">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="edit_transaction_date" class="form-label">Date *</nlabel>
+                            <label for="edit_transaction_date" class="form-label">Date *</label>
                             <input type="date" class="form-control" id="edit_transaction_date" name="transaction_date" required>
                         </div>
                         <div class="mb-3">
