@@ -408,6 +408,9 @@ function sendInvoice($db, $data) {
                                                 <button class="btn btn-sm btn-outline-success" onclick="markPaid(<?php echo $invoice['id']; ?>)" title="Mark Paid">
                                                     <i class="fas fa-check"></i>
                                                 </button>
+                                                <a class="btn btn-sm btn-outline-primary" href="../customer/pay-invoice.php?id=<?php echo $invoice['id']; ?>" title="Pay Online" target="_blank">
+                                                    <i class="fas fa-credit-card"></i>
+                                                </a>
                                                 <?php endif; ?>
                                             </div>
                                         </td>

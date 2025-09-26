@@ -112,6 +112,18 @@ function createTables($db) {
             }
         }
     }
+
+    // Create payments tables if present
+    if (file_exists('database/payments.sql')) {
+        $paySchema = file_get_contents('database/payments.sql');
+        $payStatements = explode(';', $paySchema);
+        foreach ($payStatements as $statement) {
+            $statement = trim($statement);
+            if (!empty($statement)) {
+                $db->execute($statement);
+            }
+        }
+    }
 }
 
 function insertSystemSettings($db) {
