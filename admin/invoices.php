@@ -16,6 +16,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
     
     switch ($_POST['action']) {
+        case 'record_payment':
+            $result = recordPayment($db, $_POST);
+            echo json_encode($result);
+            exit();
         case 'create_invoice':
             $result = createInvoice($db, $_POST);
             echo json_encode($result);
@@ -210,6 +214,61 @@ function markInvoicePaid($db, $data) {
     } catch (Exception $e) {
         $db->rollback();
         return ['success' => false, 'message' => 'Error marking invoice as paid: ' . $e->getMessage()];
+    }
+}
+
+function recordPayment($db, $data) {
+    try {
+        $db->beginTransaction();
+
+        $invoice = $db->fetchOne('SELECT * FROM invoices WHERE id = ?', [$data['id']]);
+        if (!$invoice) {
+            return ['success' => false, 'message' => 'Invoice not found'];
+        }
+        $amount = (float)$data['amount'];
+        if ($amount <= 0) {
+            return ['success' => false, 'message' => 'Invalid amount'];
+        }
+        $newPaid = (float)($invoice['paid_amount'] ?? 0) + $amount;
+        $newBalance = max(0, (float)$invoice['total_amount'] - $newPaid);
+        $status = $newBalance <= 0.0001 ? 'paid' : 'sent';
+
+        $db->update('invoices', [
+            'paid_amount' => $newPaid,
+            'balance_amount' => $newBalance,
+            'status' => $status
+        ], 'id = ?', [$data['id']]);
+
+        // Add payment record
+        $db->insert('payments', [
+            'invoice_id' => $data['id'],
+            'customer_id' => $invoice['customer_id'],
+            'payment_date' => date('Y-m-d'),
+            'amount' => $amount,
+            'payment_method' => $data['payment_method'] ?? 'cash',
+            'reference_number' => $data['reference_number'] ?? '',
+            'notes' => $data['notes'] ?? 'Manual payment',
+            'created_by' => $_SESSION['user_id']
+        ]);
+
+        // Ledger entry (credit note reduces receivable, payment is credit)
+        $db->insert('customer_ledger', [
+            'customer_id' => $invoice['customer_id'],
+            'transaction_date' => date('Y-m-d'),
+            'transaction_type' => 'credit',
+            'reference_type' => 'payment',
+            'reference_id' => $data['id'],
+            'description' => 'Payment received for invoice ' . $invoice['invoice_number'],
+            'amount' => $amount
+        ]);
+
+        logActivity($_SESSION['user_id'], 'invoice_payment_recorded', 'Recorded payment for invoice ' . $invoice['invoice_number']);
+
+        $db->commit();
+        return ['success' => true, 'message' => 'Payment recorded', 'balance' => $newBalance, 'status' => $status];
+    } catch (Exception $e) {
+        $db->rollback();
+        return ['success' => false, 'message' => 'Error recording payment: ' . $e->getMessage()];
     }
 }
 
@@ -408,9 +467,9 @@ function sendInvoice($db, $data) {
                                                 <button class="btn btn-sm btn-outline-success" onclick="markPaid(<?php echo $invoice['id']; ?>)" title="Mark Paid">
                                                     <i class="fas fa-check"></i>
                                                 </button>
-                                                <a class="btn btn-sm btn-outline-primary" href="../customer/pay-invoice.php?id=<?php echo $invoice['id']; ?>" title="Pay Online" target="_blank">
+                                                <button class="btn btn-sm btn-outline-primary" onclick="openRecordPayment(<?php echo $invoice['id']; ?>)" title="Record Payment">
                                                     <i class="fas fa-credit-card"></i>
-                                                </a>
+                                                </button>
                                                 <?php endif; ?>
                                             </div>
                                         </td>

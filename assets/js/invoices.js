@@ -16,6 +16,7 @@ $(document).ready(function() {
     // Form submissions
     $('#createInvoiceForm').submit(handleCreateInvoice);
     $('#markPaidForm').submit(handleMarkPaid);
+    setupRecordPaymentModal();
     
     // Load products for invoice creation
     loadProducts();
@@ -36,6 +37,83 @@ function debounceSearch(searchTerm) {
     window.searchTimeout = setTimeout(function() {
         applyFilters();
     }, 500);
+}
+
+function setupRecordPaymentModal() {
+    // Create modal HTML once
+    if ($('#recordPaymentModal').length) return;
+    const modal = `
+    <div class="modal fade" id="recordPaymentModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fas fa-credit-card me-2"></i>Record Payment</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form id="recordPaymentForm">
+            <input type="hidden" id="record_invoice_id" name="id">
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">Amount (₹)</label>
+                <input type="number" class="form-control" name="amount" step="0.01" min="0.01" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Payment Method</label>
+                <select class="form-select" name="payment_method">
+                  <option value="cash">Cash</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="cheque">Cheque</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Reference Number</label>
+                <input type="text" class="form-control" name="reference_number">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control" name="notes" rows="3"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Record</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>`;
+    $('body').append(modal);
+
+    $('#recordPaymentForm').on('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        formData.append('action', 'record_payment');
+        $.ajax({
+            url: 'invoices.php',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function(resp) {
+                if (resp.success) {
+                    showAlert('Payment recorded successfully!', 'success');
+                    $('#recordPaymentModal').modal('hide');
+                    setTimeout(() => location.reload(), 1200);
+                } else {
+                    showAlert(resp.message || 'Failed to record payment', 'danger');
+                }
+            },
+            error: function() {
+                showAlert('Error recording payment. Please try again.', 'danger');
+            }
+        });
+    });
+}
+
+function openRecordPayment(invoiceId) {
+    $('#record_invoice_id').val(invoiceId);
+    $('#recordPaymentModal').modal('show');
 }
 
 function applyFilters() {

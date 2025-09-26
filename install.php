@@ -124,6 +124,18 @@ function createTables($db) {
             }
         }
     }
+
+    // Create ledger and credit notes if present
+    if (file_exists('database/ledger.sql')) {
+        $ledgerSchema = file_get_contents('database/ledger.sql');
+        $ledgerStatements = explode(';', $ledgerSchema);
+        foreach ($ledgerStatements as $statement) {
+            $statement = trim($statement);
+            if (!empty($statement)) {
+                $db->execute($statement);
+            }
+        }
+    }
 }
 
 function insertSystemSettings($db) {
