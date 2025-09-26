@@ -31,6 +31,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             echo json_encode($result);
             exit();
             
+        case 'update_payment_settings':
+            $result = updatePaymentSettings($db, $_POST);
+            echo json_encode($result);
+            exit();
+            
         case 'update_firebase_settings':
             $result = updateFirebaseSettings($db, $_POST);
             echo json_encode($result);
@@ -140,6 +145,27 @@ function updateSMSSettings($db, $data) {
         
     } catch (Exception $e) {
         return ['success' => false, 'message' => 'Error updating SMS settings: ' . $e->getMessage()];
+    }
+}
+
+function updatePaymentSettings($db, $data) {
+    try {
+        $settings = [
+            'payment_provider' => $data['payment_provider'],
+            'razorpay_key_id' => $data['razorpay_key_id'] ?? '',
+            'razorpay_key_secret' => $data['razorpay_key_secret'] ?? ''
+        ];
+        foreach ($settings as $key => $value) {
+            $db->execute("
+                INSERT INTO system_settings (setting_key, setting_value)
+                VALUES (?, ?)
+                ON DUPLICATE KEY UPDATE setting_value = ?
+            ", [$key, $value, $value]);
+        }
+        logActivity($_SESSION['user_id'], 'settings_updated', 'Updated payment settings');
+        return ['success' => true, 'message' => 'Payment settings updated successfully'];
+    } catch (Exception $e) {
+        return ['success' => false, 'message' => 'Error updating payment settings: ' . $e->getMessage()];
     }
 }
 
@@ -259,6 +285,11 @@ function testSMS($data) {
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="sms-tab" data-bs-toggle="tab" data-bs-target="#sms" type="button" role="tab">
                                     <i class="fas fa-sms me-1"></i>SMS
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments" type="button" role="tab">
+                                    <i class="fas fa-credit-card me-1"></i>Payments
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -434,6 +465,35 @@ function testSMS($data) {
                                                 <i class="fas fa-sms me-1"></i>Test SMS
                                             </button>
                                         </div>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Payments Settings -->
+                            <div class="tab-pane fade" id="payments" role="tabpanel">
+                                <form id="paymentSettingsForm">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="payment_provider" class="form-label">Payment Provider</label>
+                                            <select class="form-select" id="payment_provider" name="payment_provider">
+                                                <option value="razorpay" <?php echo ($settingsArray['payment_provider'] ?? '') === 'razorpay' ? 'selected' : ''; ?>>Razorpay</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="razorpay_key_id" class="form-label">Razorpay Key ID</label>
+                                            <input type="text" class="form-control" id="razorpay_key_id" name="razorpay_key_id" value="<?php echo htmlspecialchars($settingsArray['razorpay_key_id'] ?? ''); ?>">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="razorpay_key_secret" class="form-label">Razorpay Key Secret</label>
+                                            <input type="password" class="form-control" id="razorpay_key_secret" name="razorpay_key_secret" value="<?php echo htmlspecialchars($settingsArray['razorpay_key_secret'] ?? ''); ?>">
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-1"></i>Save Payment Settings
+                                        </button>
                                     </div>
                                 </form>
                             </div>
