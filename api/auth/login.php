@@ -117,7 +117,22 @@ try {
     
 } catch (Exception $e) {
     error_log('Login error: ' . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'An error occurred. Please try again.']);
+    error_log('Login error trace: ' . $e->getTraceAsString());
+    
+    // In local environment, show more detailed error
+    if (Environment::isLocal()) {
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Login error: ' . $e->getMessage(),
+            'debug' => [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]
+        ]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'An error occurred. Please try again.']);
+    }
 }
 
 function getRedirectUrl($role) {
