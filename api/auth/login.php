@@ -7,7 +7,7 @@ require_once '../../config/firebase.php';
 require_once '../../includes/functions.php';
 
 // Log login attempt
-ErrorLogger::log('LOGIN_ATTEMPT', 'Login attempt started', [
+ErrorLogger::logLogin('unknown', false, 'Login attempt started', [
     'ip' => $_SERVER['REMOTE_ADDR'] ?? 'Unknown',
     'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
     'method' => $_SERVER['REQUEST_METHOD'] ?? 'Unknown',
@@ -28,7 +28,7 @@ try {
         $input = $_POST;
     }
     
-    ErrorLogger::log('LOGIN_ATTEMPT', 'Processing login request', [
+    ErrorLogger::logLogin('unknown', false, 'Processing login request', [
         'input_type' => $input ? 'json' : 'post',
         'has_input' => !empty($input),
         'input_keys' => $input ? array_keys($input) : []
@@ -48,8 +48,7 @@ try {
     $password = $input['password'] ?? '';
     $remember_me = isset($input['remember_me']) ? (bool)$input['remember_me'] : false;
     
-    ErrorLogger::log('LOGIN_ATTEMPT', 'Login credentials received', [
-        'username' => $username,
+    ErrorLogger::logLogin($username, false, 'Login credentials received', [
         'password_length' => strlen($password),
         'remember_me' => $remember_me,
         'has_username' => !empty($username),
@@ -57,7 +56,7 @@ try {
     ]);
     
     if (empty($username) || empty($password)) {
-        ErrorLogger::log('LOGIN_ERROR', 'Missing credentials', [
+        ErrorLogger::logLogin($username, false, 'Missing credentials', [
             'username_empty' => empty($username),
             'password_empty' => empty($password)
         ]);
@@ -71,9 +70,8 @@ try {
         $db = Database::getInstance();
         ErrorLogger::log('LOGIN_ATTEMPT', 'Database connection successful');
     } catch (Exception $e) {
-        ErrorLogger::log('LOGIN_ERROR', 'Database connection failed', [
-            'error' => $e->getMessage(),
-            'username' => $username
+        ErrorLogger::logLogin($username, false, 'Database connection failed', [
+            'error' => $e->getMessage()
         ]);
         echo json_encode(['success' => false, 'message' => 'Database connection failed. Please try again.']);
         exit();
@@ -95,8 +93,7 @@ try {
     );
     
     if (!$user) {
-        ErrorLogger::log('LOGIN_ERROR', 'User not found', [
-            'username' => $username,
+        ErrorLogger::logLogin($username, false, 'User not found', [
             'searched_as' => 'username_or_email'
         ]);
         echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
@@ -116,18 +113,16 @@ try {
     $passwordValid = verifyPassword($password, $user['password']);
     
     if (!$passwordValid) {
-        ErrorLogger::log('LOGIN_ERROR', 'Invalid password', [
+        ErrorLogger::logLogin($username, false, 'Invalid password', [
             'user_id' => $user['id'],
-            'username' => $user['username'],
             'password_hash' => substr($user['password'], 0, 20) . '...'
         ]);
         echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
         exit();
     }
     
-    ErrorLogger::log('LOGIN_SUCCESS', 'Password verification successful', [
+    ErrorLogger::logLogin($username, true, 'Password verification successful', [
         'user_id' => $user['id'],
-        'username' => $user['username'],
         'role' => $user['role']
     ]);
     
@@ -197,9 +192,8 @@ try {
     
     $redirectUrl = getRedirectUrl($user['role']);
     
-    ErrorLogger::log('LOGIN_SUCCESS', 'Login completed successfully', [
+    ErrorLogger::logLogin($username, true, 'Login completed successfully', [
         'user_id' => $user['id'],
-        'username' => $user['username'],
         'role' => $user['role'],
         'redirect_url' => $redirectUrl,
         'session_id' => session_id()
